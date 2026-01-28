@@ -388,11 +388,18 @@
             border-radius: 8px;
             font-size: 1em;
             transition: border-color 0.3s;
+            background: white;
+            cursor: pointer;
         }
 
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group select:hover {
             border-color: #667eea;
         }
 
@@ -448,9 +455,20 @@
         <div class="content">
             <div class="action-bar">
                 <h2 style="color: #667eea;">Danh sách sinh viên</h2>
-                <button class="btn btn-primary" onclick="openAddModal()">
-                    ➕ Thêm sinh viên mới
-                </button>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <input type="text" id="searchInput" placeholder="🔍 Tìm kiếm theo tên hoặc ID..." 
+                           style="padding: 10px 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; min-width: 250px;"
+                           onkeypress="if(event.key === 'Enter') searchStudents()">
+                    <button class="btn btn-primary" onclick="searchStudents()" style="padding: 10px 20px;">
+                        🔍 Tìm kiếm
+                    </button>
+                    <button class="btn btn-primary" onclick="loadStudents()" style="padding: 10px 20px; background: #4caf50;">
+                        🔄 Làm mới
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddModal()">
+                        ➕ Thêm sinh viên mới
+                    </button>
+                </div>
             </div>
 
             <div class="stats" id="stats">
@@ -542,8 +560,44 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="address">Địa chỉ</label>
-                    <input type="text" id="address" name="address">
+                    <label for="address">Tỉnh/Thành phố</label>
+                    <select id="address" name="address">
+                        <option value="">-- Chọn tỉnh/thành phố --</option>
+                        <option value="An Giang">An Giang</option>
+                        <option value="Bắc Ninh">Bắc Ninh</option>
+                        <option value="Cà Mau">Cà Mau</option>
+                        <option value="Cao Bằng">Cao Bằng</option>
+                        <option value="Cần Thơ">Cần Thơ</option>
+                        <option value="Đà Nẵng">Đà Nẵng</option>
+                        <option value="Đắk Lắk">Đắk Lắk</option>
+                        <option value="Điện Biên">Điện Biên</option>
+                        <option value="Đồng Nai">Đồng Nai</option>
+                        <option value="Đồng Tháp">Đồng Tháp</option>
+                        <option value="Gia Lai">Gia Lai</option>
+                        <option value="Hà Nội">Hà Nội</option>
+                        <option value="Hà Tĩnh">Hà Tĩnh</option>
+                        <option value="Hải Phòng">Hải Phòng</option>
+                        <option value="Huế">Huế</option>
+                        <option value="Hưng Yên">Hưng Yên</option>
+                        <option value="Khánh Hoà">Khánh Hoà</option>
+                        <option value="Lai Châu">Lai Châu</option>
+                        <option value="Lâm Đồng">Lâm Đồng</option>
+                        <option value="Lạng Sơn">Lạng Sơn</option>
+                        <option value="Lào Cai">Lào Cai</option>
+                        <option value="Nghệ An">Nghệ An</option>
+                        <option value="Ninh Bình">Ninh Bình</option>
+                        <option value="Phú Thọ">Phú Thọ</option>
+                        <option value="Quảng Ngãi">Quảng Ngãi</option>
+                        <option value="Quảng Ninh">Quảng Ninh</option>
+                        <option value="Quảng Trị">Quảng Trị</option>
+                        <option value="Sơn La">Sơn La</option>
+                        <option value="Tây Ninh">Tây Ninh</option>
+                        <option value="Thái Nguyên">Thái Nguyên</option>
+                        <option value="Thanh Hoá">Thanh Hoá</option>
+                        <option value="Thành phố Hồ Chí Minh">Thành phố Hồ Chí Minh</option>
+                        <option value="Tuyên Quang">Tuyên Quang</option>
+                        <option value="Vĩnh Long">Vĩnh Long</option>
+                    </select>
                 </div>
 
                 <div class="form-actions">
@@ -617,7 +671,16 @@
                 if (!response.ok) {
                     throw new Error('Không thể tải dữ liệu từ server');
                 }
-                allStudents = await response.json();
+                const data = await response.json();
+                
+                // Xử lý format mới: {total, students} hoặc array cũ
+                if (data.students) {
+                    allStudents = data.students;
+                } else if (Array.isArray(data)) {
+                    allStudents = data;
+                } else {
+                    allStudents = [];
+                }
                 
                 loadingEl.style.display = 'none';
 
@@ -632,6 +695,71 @@
                 updateStats();
                 renderTable();
                 renderPagination();
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                showMessage(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        // Tìm kiếm sinh viên theo tên hoặc ID
+        async function searchStudents() {
+            const searchInput = document.getElementById('searchInput');
+            const keyword = searchInput.value.trim();
+            
+            if (!keyword) {
+                showMessage('Vui lòng nhập tên hoặc ID để tìm kiếm', 'error');
+                return;
+            }
+
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const tableContainer = document.getElementById('studentTableContainer');
+            const emptyState = document.getElementById('emptyState');
+
+            loadingEl.style.display = 'block';
+            errorEl.style.display = 'none';
+            tableContainer.style.display = 'none';
+            emptyState.style.display = 'none';
+
+            try {
+                // Kiểm tra xem có phải là số (ID) không
+                const isNumeric = /^\d+$/.test(keyword);
+                let url;
+                if (isNumeric) {
+                    url = `/api/students/search?id=${encodeURIComponent(keyword)}`;
+                } else {
+                    url = `/api/students/search?name=${encodeURIComponent(keyword)}`;
+                }
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Không thể tìm kiếm');
+                }
+                const data = await response.json();
+                
+                allStudents = data.students || [];
+                loadingEl.style.display = 'none';
+
+                if (allStudents.length === 0) {
+                    emptyState.style.display = 'block';
+                    emptyState.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <h3>Không tìm thấy</h3>
+                        <p>Không có sinh viên nào với ${isNumeric ? 'ID' : 'tên'} "${keyword}"</p>
+                    `;
+                    updateStats();
+                    return;
+                }
+
+                tableContainer.style.display = 'block';
+                currentPage = 1;
+                updateStats();
+                renderTable();
+                renderPagination();
+                showMessage(`Tìm thấy ${data.total} sinh viên với ${isNumeric ? 'ID' : 'tên'} "${keyword}"`);
             } catch (error) {
                 loadingEl.style.display = 'none';
                 showMessage(`Lỗi: ${error.message}`, 'error');

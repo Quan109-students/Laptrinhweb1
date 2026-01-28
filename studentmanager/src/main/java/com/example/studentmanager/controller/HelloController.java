@@ -69,14 +69,52 @@ public class HelloController {
         return "Xin chào " + name;
     }
 
+    // API tìm kiếm sinh viên theo tên hoặc ID
     @GetMapping("/students/search")
-    public String search(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "1") int page) {
-        return "keyword=" + keyword + ", page=" + page;
+    public ResponseEntity<?> searchStudents(@RequestParam(required = false) String name,
+                                           @RequestParam(required = false) Integer id) {
+        try {
+            // Nếu có ID, tìm theo ID
+            if (id != null) {
+                Optional<Student> student = studentRepository.findById(id);
+                if (student.isPresent()) {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("keyword", "ID: " + id);
+                    result.put("total", 1);
+                    result.put("students", List.of(student.get()));
+                    return ResponseEntity.ok(result);
+                } else {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("keyword", "ID: " + id);
+                    result.put("total", 0);
+                    result.put("students", List.of());
+                    return ResponseEntity.ok(result);
+                }
+            }
+            
+            // Nếu có name, tìm theo tên
+            if (name != null && !name.trim().isEmpty()) {
+                List<Student> students = studentRepository.findByFullNameContainingIgnoreCase(name.trim());
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("keyword", name);
+                result.put("total", students.size());
+                result.put("students", students);
+                
+                return ResponseEntity.ok(result);
+            }
+            
+            // Nếu không có tham số nào
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", "Vui lòng cung cấp tham số 'name' hoặc 'id' để tìm kiếm"));
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Lỗi khi tìm kiếm sinh viên: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 
-    // Bài 3 - Lấy sinh viên theo ID từ database
+    // API lấy sinh viên theo ID
     @GetMapping("/students/{id}")
     public ResponseEntity<?> getStudentById(@PathVariable int id) {
         try {
@@ -112,12 +150,17 @@ public class HelloController {
         }
     }
 
-    // Bài 5 - Lấy tất cả sinh viên từ database
+    // API lấy danh sách tất cả sinh viên (Get All)
     @GetMapping("/students")
-    public ResponseEntity<?> getStudents() {
+    public ResponseEntity<?> getAllStudents() {
         try {
             List<Student> students = studentRepository.findAll();
-            return ResponseEntity.ok(students);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("total", students.size());
+            result.put("students", students);
+            
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", "Không thể kết nối database: " + e.getMessage());
@@ -134,6 +177,9 @@ public class HelloController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "Họ và tên không được để trống"));
             }
+
+            // Không set ID - để SQL Server tự động tạo (IDENTITY column)
+            student.setStudentID(null);
 
             Student savedStudent = studentRepository.save(student);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedStudent);
@@ -176,7 +222,7 @@ public class HelloController {
         }
     }
 
-    // Xóa sinh viên
+    // Xóa sinh viên và tự động cập nhật ID
     @DeleteMapping("/students/{id}")
     public ResponseEntity<?> deleteStudent(@PathVariable int id) {
         try {
@@ -186,8 +232,20 @@ public class HelloController {
                     .body(Map.of("error", "Không tìm thấy sinh viên với ID: " + id));
             }
 
+            // Xóa sinh viên
             studentRepository.deleteById(id);
-            return ResponseEntity.ok(Map.of("message", "Đã xóa sinh viên thành công", "id", id));
+            
+            // Tự động cập nhật ID: Tất cả sinh viên có ID > id đã xóa sẽ giảm đi 1
+            // Cập nhật từ lớn xuống nhỏ để tránh conflict
+            List<Student> studentsToUpdate = studentRepository.findAllByIdGreaterThanOrderByIdDesc(id);
+            for (Student s : studentsToUpdate) {
+                Integer oldId = s.getStudentID();
+                Integer newId = oldId - 1;
+                // Dùng native query để update ID trực tiếp
+                studentRepository.updateStudentId(oldId, newId);
+            }
+            
+            return ResponseEntity.ok(Map.of("message", "Đã xóa sinh viên thành công và cập nhật ID", "id", id));
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", "Lỗi khi xóa sinh viên: " + e.getMessage());
