@@ -37,11 +37,14 @@ git push -u origin main
 
 ## Bước 3: Cấu hình Web Service
 
-1. **Connect repository**: chọn repo **studentmanager** (GitHub của bạn).
+1. **Connect repository**: chọn repo (ví dụ **Laptrinhweb1** hoặc **studentmanager**).
 2. **Name**: `studentmanager` (hoặc tên bạn muốn).
 3. **Region**: chọn gần bạn (ví dụ Singapore).
 4. **Runtime**: chọn **Docker** (Render sẽ dùng Dockerfile trong repo).
 5. **Branch**: `main`.
+6. **Root Directory** (quan trọng): Nếu Dockerfile nằm trong **thư mục con** (ví dụ repo là `Laptrinhweb1` và project nằm trong `studentmanager/`), hãy điền:
+   - **Root Directory**: `studentmanager`
+   - Render sẽ build trong thư mục này và tìm thấy Dockerfile. Nếu để trống, Render tìm Dockerfile ngay tại gốc repo → dễ lỗi "open Dockerfile: no such file or directory".
 
 ### Biến môi trường (Environment Variables)
 
