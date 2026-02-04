@@ -1,0 +1,14 @@
+# Render Blueprint - Deploy Student Manager
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: studentmanager
+    runtime: docker
+
+    # Biến môi trường: cấu hình trên Dashboard Render (Secret Files / Environment)
+    # SPRING_DATASOURCE_URL=jdbc:sqlserver://...
+    # SPRING_DATASOURCE_USERNAME=...
+    # SPRING_DATASOURCE_PASSWORD=...
+
+    # Health check (tùy chọn)
+    healthCheckPath: /
