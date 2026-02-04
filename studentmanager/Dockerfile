@@ -27,8 +27,8 @@ USER appuser
 # Copy jar từ stage build
 COPY --from=build /app/target/*.jar app.jar
 
-# Port ứng dụng
-EXPOSE 8081
+# Render gán PORT qua env (vd 10000) - Spring Boot đọc từ server.port trong application.properties
+EXPOSE 8080
 
-# Chạy Spring Boot
+# Chạy Spring Boot (PORT được đọc từ application.properties)
 ENTRYPOINT ["java", "-jar", "app.jar"]
